@@ -1,0 +1,39 @@
+---
+- name: "IT Automation Portfolio: Jira-Ansible Integration"
+  hosts: localhost
+  connection: local
+  vars:
+
+    jira_url: 
+    email: 
+    api_token: 
+    request_type_id: 36
+    id_done: "111" 
+    id_failed: "2"
+
+  tasks:
+    - name: "Search using Service Desk API"
+      uri:
+        url: "{{ jira_url }}/rest/servicedeskapi/request?serviceDeskId=1&requestStatus=OPEN_REQUESTS"
+        method: GET
+        user: "{{ email }}"
+        password: "{{ api_token }}"
+        force_basic_auth: yes
+        status_code: 200
+      register: search_results
+
+    - name: "Report findings"
+      debug:
+        msg: "Found {{ search_results.json['values'] | length }} open tickets."
+
+    - name: "Process each ticket found"
+      include_tasks: "process_actions.yaml"
+      loop: "{{ search_results.json['values'] }}"
+      loop_control:
+        loop_var: ticket
+      when: 
+        - search_results.json['values'] | length > 0
+        - ticket.requestTypeId == "36"
+        - ticket.currentStatus.status == "Work in progress"
+
+

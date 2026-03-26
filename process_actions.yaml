@@ -1,0 +1,96 @@
+# Action 1: Captures processes and exports into a Jira ticket comment
+- name: "Capture Processes for {{ ticket.issueKey }}"
+  shell: "ps aux --sort=-%cpu | head -n 6"
+  register: ps_out
+
+- name: "[{{ ticket.issueKey }}] Comment Processes to Jira"
+  uri:
+    url: "{{ jira_url }}/rest/api/3/issue/{{ ticket.issueKey }}/comment"
+    method: POST
+    user: "{{ email }}"
+    password: "{{ api_token }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      body:
+        type: "doc"
+        version: 1
+        content:
+          - type: "paragraph"
+            content: 
+              - type: "text"
+                text: "✅ Automated Check: Running Processes:\n{{ ps_out.stdout | default('No process data captured') }}"
+    status_code: [200, 201]
+  when: ps_out is defined
+
+# Action 2: Captures current running Docker Containers and exports into a Jira ticket comment
+- name: "[{{ ticket.issueKey }}] Get Docker Containers"
+  shell: "{% raw %}docker ps --format '{{.Names}}' || echo 'Docker not installed/running'{% endraw %}"
+  register: docker_out
+
+- name: "[{{ ticket.issueKey }}] Comment Docker to Jira"
+  uri:
+    url: "{{ jira_url }}/rest/api/3/issue/{{ ticket.issueKey }}/comment"
+    method: POST
+    user: "{{ email }}"
+    password: "{{ api_token }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      body:
+        type: "doc"
+        version: 1
+        content:
+          - type: "paragraph"
+            content: [{ "type": "text", "text": "✅ Automated Check: Docker Containers:\n{{ docker_out.stdout }}" }]
+    status_code: [200, 201]
+
+# Action 3: Checks CPU usage, if below 90%, it will change the ticket status to Failed (on purpose)
+- name: "[{{ ticket.issueKey }}] Calculate CPU Usage"
+  shell: "top -bn1 | grep 'Cpu(s)' | awk '{print $2 + $4}'"
+  register: cpu_usage
+
+- name: "[{{ ticket.issueKey }}] Logic: CPU is NOT 90% (Fail Case)"
+  block:
+    - name: "Change Status to Failed"
+      uri:
+        url: "{{ jira_url }}/rest/api/3/issue/{{ ticket.issueKey }}/transitions"
+        method: POST
+        user: "{{ email }}"
+        password: "{{ api_token }}"
+        force_basic_auth: yes
+        body_format: json
+        body:
+          transition: { "id": "{{ id_failed }}" }
+        status_code: [200, 201, 204]
+
+    - name: "Final Failure Comment"
+      uri:
+        url: "{{ jira_url }}/rest/api/3/issue/{{ ticket.issueKey }}/comment"
+        method: POST
+        user: "{{ email }}"
+        password: "{{ api_token }}"
+        force_basic_auth: yes
+        body_format: json
+        body:
+          body:
+            type: "doc"
+            version: 1
+            content:
+              - type: "paragraph"
+                content: [{ "type": "text", "text": "❌ FAILURE: CPU is at {{ cpu_usage.stdout }}%. Required: 90.0%. Closing ticket as Failed." }]
+        status_code: [200, 201, 204]
+  when: cpu_usage.stdout | float != 90.0
+
+- name: "[{{ ticket.issueKey }}] Logic: CPU is 90% (Success Case)"
+  uri:
+    url: "{{ jira_url }}/rest/api/3/issue/{{ ticket.issueKey }}/transitions"
+    method: POST
+    user: "{{ email }}"
+    password: "{{ api_token }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      transition: { "id": "{{ id_done }}" }
+    status_code: [200, 201]
+  when: cpu_usage.stdout | float == 90.0
