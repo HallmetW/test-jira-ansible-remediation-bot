@@ -1,6 +1,7 @@
 # test-jira-ansible-remediation-bot
 Personal testing ground for automating specific tasks in Jira SM using Ansible
 
+<img width="1672" height="926" alt="vivaldi_1BmXKnGbf5" src="https://github.com/user-attachments/assets/d9cea0c0-a0c0-454f-85ba-c794850848a6" />
 
 What's the purpose?
 
