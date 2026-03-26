@@ -4,12 +4,15 @@ Personal testing ground for automating specific tasks in Jira SM using Ansible
 
 What's the purpose?
 
+
 For when you run certain routine tasks (server patching, users leaving), this will detect the ticket status so it triggers and performs the actions, creates an auditing trail (comments) and changes the status of the tickets if it succeeds or fails. 
 
 Pulls ticket data without requiring open inbound firewall ports using the JIRA API.
 Automates the "Done/Failed" transition logic based on system thresholds (currently set to Fail on purpose for changing status tests).
 
+
 The Stack I used for this so far
+
 
 Language: Python 3.12+ (Virtual Env)
 
@@ -20,7 +23,9 @@ API: Jira Service Management (REST API v3 / ServiceDesk API)
 Scheduler: System Cron
 
 
-Logic Flow
+
+Logic Flow used
+
 
 Fetch: Queries /rest/servicedeskapi/request for tickets where status == "Work in progress".
 
